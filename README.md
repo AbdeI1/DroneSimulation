@@ -1,10 +1,17 @@
-# Drone Simulation
+# Drone Trip Simulation
+
+To run, make sure you have a full [Rust installation](https://www.rust-lang.org/tools/install), then just type:
 
 ```bash
 cargo run 8081 web
 ```
 
-Then just visit
+Afterwards you can visit
 
 * [localhost:8081](http://localhost:8081)
+  
+  Visualization of the system.
+
 * [localhost:8081/schedule.html](http://localhost:8081/schedule.html)
+
+  Interact with the system and schedule trips.
