@@ -10,7 +10,7 @@ Afterwards you can visit
 
 * [localhost:8081](http://localhost:8081)
   
-  Visualization of the system.
+  to see a visualization of the system. and
 
 * [localhost:8081/schedule.html](http://localhost:8081/schedule.html)
 
