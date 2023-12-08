@@ -1,57 +1,35 @@
 use rand::prelude::*;
 
-use super::entity::EntityTrait;
+use super::entity::{EntityTrait, EntityStruct};
 use super::super::strategy::{MovementStrategy, PathStrategy};
 use crate::graph::graph::Graph;
 use crate::graph::routing::AStar;
 use crate::math::vector3::Vector3;
+use crate::transit::simulation_model::SimulationModel;
 use serde_json::Value;
 
-pub struct Human {
-  id: i32,
-  details: Value,
-  position: Vector3,
-  direction: Vector3,
+pub struct Human<'a> {
+  entity_info: EntityStruct<'a>,
   destination: Vector3,
-  speed: f64,
   movement: Option<Box<dyn MovementStrategy>>
 }
 
-unsafe impl Send for Human {}
-unsafe impl Sync for Human {}
+unsafe impl Send for Human<'_> {}
+unsafe impl Sync for Human<'_> {}
 
-impl Human {
+impl<'a> Human<'a> {
   pub fn new(id: i32, data: &Value) -> Self {
-    let mut h = Human {
-      id,
-      details: data.clone(),
-      speed: match data["speed"].as_f64() {
-        Some(s) => s,
-        _ => 10.
-      },
-      position: match data["position"].as_array() {
-        Some(a) => match a.iter().map(|v| v.as_f64()).collect::<Vec<Option<f64>>>()[..] {
-          [Some(x), Some(y), Some(z)] => Vector3::new(x, y, z),
-          _ => Vector3::origin()
-        },
-        _ => Vector3::origin()
-      },
-      direction: match data["direction"].as_array() {
-        Some(a) => match a.iter().map(|v| v.as_f64()).collect::<Vec<Option<f64>>>()[..] {
-          [Some(x), Some(y), Some(z)] => Vector3::new(x, y, z),
-          _ => Vector3::origin()
-        },
-        _ => Vector3::origin()
-      },
+    let mut h: Human<'_> = Human {
+      entity_info: EntityStruct::new(id, data),
       destination: Vector3::origin(),
       movement: None
     };
-    h.destination = h.position;
+    h.destination = h.entity_info.position;
     h
   }
   fn get_random_point(&self) -> Vector3 {
     let x = random::<f64>()*2900. - 1400.;
-    let y = self.position.y;
+    let y = self.entity_info.position.y;
     let z = random::<f64>()*1600. - 800.;
     Vector3::new(x, y, z)
   }
@@ -64,22 +42,22 @@ impl Human {
   }
 }
 
-impl EntityTrait for Human {
-  fn get_id(&self) -> i32 { self.id }
-  fn get_position(&self) -> Vector3 { self.position }
-  fn get_direction(&self) -> Vector3 { self.direction }
-  fn get_destination(&self) -> Vector3 { self.destination }
-  fn get_speed(&self) -> f64 { self.speed }
-  fn get_details(&self) -> &Value { &self.details }
+impl<'a, 'b> EntityTrait<'b> for Human<'a> where 'b: 'a {
+  fn get_id(&self) -> i32 { self.entity_info.id }
+  fn get_position(&self) -> Vector3 { self.entity_info.position }
+  fn get_direction(&self) -> Vector3 { self.entity_info.direction }
+  fn get_speed(&self) -> f64 { self.entity_info.speed }
+  fn get_details(&self) -> &Value { &self.entity_info.details }
   fn update(&mut self, dt: f64) {
     let mi = self.get_movement_info();
     if let Some(strat) = &mut self.movement {
-      (self.position, self.direction) = strat.move_entity(mi, dt);
+      (self.entity_info.position, self.entity_info.direction) = strat.move_entity(mi, dt);
       if strat.is_completed() {
         self.movement = None;
       }
     }
   }
-  fn set_position(&mut self, pos: Vector3) { self.position = pos; }
-  fn set_direction(&mut self, dir: Vector3) { self.direction = dir; }
+  fn set_position(&mut self, pos: Vector3) { self.entity_info.position = pos; }
+  fn set_direction(&mut self, dir: Vector3) { self.entity_info.direction = dir; }
+  fn link_model(&mut self, model: &'b SimulationModel<'b>) { self.entity_info.model = Some(model); }
 }

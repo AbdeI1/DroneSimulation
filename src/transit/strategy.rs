@@ -4,7 +4,6 @@ use crate::math::vector3::Vector3;
 pub struct MovementInfo {
   pub position: Vector3,
   pub direction: Vector3,
-  pub destination: Vector3,
   pub speed: f64
 }
 

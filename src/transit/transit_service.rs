@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::time::SystemTime;
 use serde_json::{json, Value};
 
@@ -9,17 +8,17 @@ use super::entities::entity;
 use simulation_model::SimulationModel;
 use entity::{Entity, EntityTrait};
 
-pub struct TransitServer {
-  pub clients: HashMap<String, Client>,
+pub struct TransitServer<'a,'b> where 'a: 'b {
+  client: &'a Client,
   total_time: f64,
   start: SystemTime,
-  model: SimulationModel,
+  model: SimulationModel<'b>,
 }
 
-impl TransitServer {
-  pub fn new() -> Self {
+impl<'a, 'b> TransitServer<'a, 'b> where 'a: 'b {
+  pub fn new(cl: &'a Client) -> Self {
     let mut server = TransitServer {
-      clients: HashMap::new(),
+      client: cl,
       total_time: 0.,
       start: SystemTime::now(),
       model: SimulationModel::new()
@@ -27,13 +26,12 @@ impl TransitServer {
     server.model.set_graph(obj_graph_parser("web/assets/model/routes.obj".to_string()));
     server
   }
-  pub fn recieve_message(&mut self, message: &str) {
+  pub fn recieve_message(&'b mut self, message: &str) {
     let data: Value = serde_json::from_str(message).unwrap();
     if let Value::String(cmd) = &data["command"] {
       match cmd.as_str() {
         "CreateEntity" => if let Some(entity) = self.model.create_entity(data) {
-          self.send_entity("AddEntity", &entity);
-          self.model.entities.insert(entity.get_id(), entity);
+          self.send_entity("AddEntity", entity);
         },
         "ScheduleTrip" => if let Some(data) = self.model.schedule_trip(&data) {
           self.model.update(0.);
@@ -56,6 +54,9 @@ impl TransitServer {
             self.send_entity("UpdateEntity", &entity);
           }
         },
+        "Stop" => {
+          self.model.stop();
+        }
         _ => ()
       }
     }
@@ -87,10 +88,8 @@ impl TransitServer {
     }).to_string());
   }
   pub fn send_message(&self, message: &str) {
-    for (_, client) in self.clients.iter() {
-      if let Some(sink) = &client.sender {
-        let _ = sink.send(Ok(warp::ws::Message::text(message)));
-      }
+    if let Some(sink) = &self.client.sender {
+      let _ = sink.send(Ok(warp::ws::Message::text(message)));
     }
   }
 }

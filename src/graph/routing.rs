@@ -1,4 +1,4 @@
-use std::{collections::{BinaryHeap, HashSet, HashMap}, cmp::Ordering};
+use std::{collections::{BinaryHeap, HashSet, HashMap, VecDeque}, cmp::Ordering};
 
 use super::graph::{Graph, GraphNode};
 
@@ -50,6 +50,42 @@ impl SearchStrategy for DepthFirstSearch {
       if n == end { break; }
       for o in &g.adjacency_list[n as usize] {
         s.push((*o, n));
+      }
+    };
+    let mut n = end;
+    let mut path = vec![];
+    while n != -1 {
+      path.push(n);
+      n = match parents.get(&n) {
+        Some(v) => *v,
+        _ => { return None; }
+      };
+    }
+    path.reverse();
+    Some(path)
+  }
+}
+
+pub struct BreadthFirstSearch {}
+impl BreadthFirstSearch {
+  pub fn new() -> Self {
+    BreadthFirstSearch {  }
+  }
+}
+impl SearchStrategy for BreadthFirstSearch {
+  fn get_path(&self, g: &Graph, start: i32, end: i32) -> Option<Vec<i32>> {
+    let mut q: VecDeque<(i32, i32)> = VecDeque::new();
+    let mut v: HashSet<i32> = HashSet::new();
+    let mut parents: HashMap<i32, i32> = HashMap::new();
+    q.push_back((start, -1));
+    while !q.is_empty() {
+      let (n, p) = q.pop_front().unwrap();
+      if v.contains(&n) { continue; }
+      v.insert(n);
+      parents.insert(n, p);
+      if n == end { break; }
+      for o in &g.adjacency_list[n as usize] {
+        q.push_back((*o, n));
       }
     };
     let mut n = end;

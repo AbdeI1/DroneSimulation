@@ -177,10 +177,6 @@ $( document ).ready(function() {
   }
 
   loadScene(sceneFile);
-
-  for (let i = 0; i < 100; i++) {
-    addHuman();
-  }
 });
 
 function schedule() {
@@ -323,84 +319,6 @@ function loadScene(file, initialScene = true) {
       socket.send(JSON.stringify({command: "runScript", "script": json}));
     }*/
   });
-}
-
-function displayJSON(data) {
-  //data should be a standard JSON-style object
-  if (data["command"] == "notification") {
-    if (data["value"] == 'updateDetails') {
-      if (data["details"].color != undefined) {
-        entities[data["id"]].children[1].material.color.setHex(parseInt(data["details"].color, 16));
-        entities[data["id"]].children[1].material.opacity = 0.5;
-      }
-      else {
-        entities[data["id"]].children[1].material.opacity = 0.0;
-      }
-      return;
-    }
-
-    type_lookup = {
-      'scheduled': ' scheduled.',
-      'delivered': ' delivered to customer.',
-      'en route': ' picked up.',
-      'moving': ' now moving.',
-      'idle': ' stopped moving.'
-    }
-    string_ending = type_lookup[data["value"]];
-    additional_string = "Entity #" + data["id"] + string_ending + "\r\n";
-    notifbar = document.getElementById("notification-bar");
-    notifbar.textContent += additional_string;
-
-    const entityId = data["id"];
-
-    if (data["value"] == 'idle' || data["value"] == 'moving') {
-      if (entityId in paths) {
-        scene.remove(paths[entityId]);
-        delete paths[entityId];
-      }
-    }
-    if (data["value"] == 'idle') {
-      for ( var mixer of mixers ) {
-        if (entityId == mixer.id) {
-          mixer.duration = 0;
-        }
-      }
-    }
-    else if (data["value"] == 'moving') {
-      if ("path" in data) {
-        //create a blue LineBasicMaterial
-        var material = new THREE.LineBasicMaterial( { color: 0xf0fc03 } );
-        const points = [];
-        for (var point of  data["path"]) {
-          points.push( new THREE.Vector3( point[0], point[1], point[2] ) );
-        }
-        /*points.push( new THREE.Vector3( - 10, 0, 0 ) );
-        points.push( new THREE.Vector3( 0, 10, 0 ) );
-        points.push( new THREE.Vector3( 10, 0, 0 ) );*/
-        const geometry = new THREE.BufferGeometry().setFromPoints( points );
-
-        const line = new THREE.Line( geometry, material );
-        //console.log(routes);
-        if (routes.length > 0) {
-          line.position.copy( routes[0].position );
-          line.scale.copy( routes[0].scale );
-          line.material.color.setHex(routes[0].material.color.getHex());
-        }
-
-        //"position": [-0.0,-12.5,-0.0],
-        //      "scale": [0.0705,0.05,0.0705],
-        paths[entityId] = line;
-        scene.add( line );
-      }
-
-      for ( var mixer of mixers ) {
-        if (entityId == mixer.id) {
-
-          mixer.duration = 2;
-        }
-      }
-    }
-  }
 }
 
 // This function is a helper for loadScene().

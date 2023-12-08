@@ -1,7 +1,6 @@
 use futures_util::{FutureExt, StreamExt};
 use warp::{Filter, Reply, Rejection};
-use std::sync::Arc;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
 use warp::ws::WebSocket;
@@ -25,6 +24,7 @@ pub mod transit {
     pub mod robot;
     pub mod human;
     pub mod helicopter;
+    pub mod package;
   }
   pub mod factory;
   pub mod strategy;
@@ -39,8 +39,6 @@ pub struct Client {
   pub client_id: String,
   pub sender: Option<mpsc::UnboundedSender<std::result::Result<warp::ws::Message, warp::Error>>>,
 }
-
-type Server = Arc<Mutex<TransitServer>>;
 
 #[tokio::main]
 async fn main() {
@@ -57,9 +55,8 @@ async fn main() {
     }
   };
   let web_dir = args[2].clone();
-  let server: Server = Arc::new(Mutex::new(TransitServer::new()));
   let websocket_con = warp::ws()
-    .and(warp::any().map(move || server.clone()))
+    .and(warp::any())
     .and_then(handle_connection)
     .with(warp::cors().allow_any_origin());
   warp::serve(websocket_con.or(warp::fs::dir(web_dir)))
@@ -67,15 +64,15 @@ async fn main() {
     .await;
 }
 
-async fn handle_connection(ws: warp::ws::Ws, server: Server) -> std::result::Result<impl Reply, Rejection> {
+async fn handle_connection(ws: warp::ws::Ws) -> std::result::Result<impl Reply, Rejection> {
   let mut resp = ws
-    .on_upgrade(|websocket| add_client(websocket, server))
+    .on_upgrade(serve)
     .into_response();
   resp.headers_mut().append("Sec-WebSocket-Protocol", "web_server".parse().unwrap());
   Ok(resp)
 }
 
-async fn add_client(websocket: WebSocket, server: Server) {
+async fn serve(websocket: WebSocket) {
   println!("establishing client connection...");
   let (ws_sink, mut ws_stream) = websocket.split();
   let (sink, stream) = mpsc::unbounded_channel();
@@ -90,7 +87,7 @@ async fn add_client(websocket: WebSocket, server: Server) {
     client_id: uuid.clone(),
     sender: Some(sink),
   };
-  server.lock().await.clients.insert(uuid.clone(), new_client);
+  let mut server: TransitServer = TransitServer::new(&new_client);
   while let Some(result) = ws_stream.next().await {
     let msg = match result {
       Ok(msg) => msg,
@@ -100,9 +97,8 @@ async fn add_client(websocket: WebSocket, server: Server) {
       }
     };
     if let Ok(message) = msg.to_str() {
-      server.lock().await.recieve_message(message);
+      // server.recieve_message(message);
     }
   }
-  server.lock().await.clients.remove(&uuid);
   println!("client disconnected");
 }
