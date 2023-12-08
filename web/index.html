@@ -21,6 +21,18 @@
       display: block;
     }
 
+    #popup {
+      padding: 30px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      background-color: lightblue;
+      border: 1px;
+      border-style: solid;
+    }
+
     #menu {
       background-color: black;
       opacity: 0.8;
@@ -71,6 +83,9 @@
 </head>
 
 <body>
+  <div id="popup" hidden="true">
+    <h2>Your delivery is scheduled!</h2>
+  </div>
   <div id="notification-bar"></div>
   <div id="menu">
     <div>Change View:<br> <select id="entitySelect" onchange='changeView()'>
@@ -78,7 +93,29 @@
       </select></div>
     <div><br>Simulation Speed:<br> <input type="range" min="1" max="100" value="10" class="slider" id="simSpeed">
     </div>
-    <div><br><input type="checkbox" onclick='toggleRoutes()'> Show All Routes
+    <div>
+      <br><input type="checkbox" onclick='toggleRoutes()'> Show All Routes</input>
+      <div>
+        <button id="schedule-button">Schedule Trip</button>
+        <div id="schedule-input" hidden="true">
+          <div>Name: <input id="name" type="Text"></div>
+          <div>Search Strategy:
+            <select id="search-strategy">
+              <option value="astar">Astar</option>
+              <option value="bfs">BFS</option>
+              <option value="dfs">DFS</option>
+              <option value="dijkstra">Dijkstra</option>
+            </select>
+          </div>
+          <br><button id="schedule-submit" onclick="schedule()">Submit</button>
+          <button id="schedule-cancel">Cancel</button><br>
+          <div id="nameError"></div>
+        </div>
+        <div>
+          <button onclick="addHuman()">Add Human</button>
+          <button onclick='stopSimulation()'>Stop Simulation</button>
+        </div>
+      </div>
     </div>
   </div>
   <div id="scene-container"></div>

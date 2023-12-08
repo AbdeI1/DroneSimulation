@@ -22,6 +22,8 @@ var currentView = -1;
 var showRoutes = false;
 var showPaths = true;
 
+// import * as THREE from 'three';
+
 // More important related to models and animation.
 var geometry, material, mesh;
 var container = document.querySelector( '#scene-container' );
@@ -29,8 +31,20 @@ const mixers = [];
 const clock = new THREE.Clock();
 const loader = new GLTFLoader();
 const objloader = new OBJLoader();
+const raycaster = new THREE.Raycaster();
 var simSpeed = 1.0;
 // Function definitions start here...
+
+let campus = undefined;
+let state = 0;
+
+const bgeometry = new THREE.CylinderGeometry(0.2, 0.2, 3000, 16, 1);
+const material1 = new THREE.MeshBasicMaterial( { color: 0xffff00, transparent: true, opacity: 0.5 } ); 
+const material2 = new THREE.MeshBasicMaterial( { color: 0x00ff00, transparent: true, opacity: 0.5 } ); 
+let beamSelector1 = new THREE.Mesh(bgeometry,  material1);
+let beamSelector2 = new THREE.Mesh(bgeometry,  material2);
+beamSelector1.visible = false;
+beamSelector2.visible = false;
 
 // This is the function that is called once the document is started.
 $( document ).ready(function() {
@@ -44,8 +58,50 @@ $( document ).ready(function() {
   // Init() starts up the scene and its update loop.
   init();
 
+  scene.add(beamSelector1);
+  scene.add(beamSelector2);
+  
   // Start checking for when the user resizes their application window.
   window.addEventListener( 'resize', onWindowResize );
+
+  document.getElementById("schedule-button").onclick = (e) => {
+    state = 1;
+    document.getElementById("schedule-button").hidden = true;
+    document.getElementById("schedule-input").hidden = false;
+  }
+
+  document.getElementById("schedule-cancel").onclick = (e) => {
+    state = 0;
+    beamSelector1.visible = false;
+    beamSelector2.visible = false;
+    document.getElementById("schedule-button").hidden = false;
+    document.getElementById("schedule-input").hidden = true;
+  }
+
+  document.getElementById("scene-container").onclick = (e) => {
+    if (state > 0) {
+      // console.log([e.clientX, e.clientY]);
+      let normalized_coords = new THREE.Vector2((e.clientX / container.clientWidth) * 2 - 1, -(e.clientY / container.clientHeight) * 2 + 1);
+      // console.log([normalized_coords.x, normalized_coords.y]);
+      raycaster.setFromCamera(normalized_coords, camera);
+      if (campus) {
+        const intersects = raycaster.intersectObject( campus, true );
+        for (let i = 0; i < intersects.length; i++) {
+          let int = intersects[i];
+          if (state == 1) {
+            beamSelector1.position.set(int.point.x, int.point.y, int.point.z);
+            beamSelector1.visible = true;
+            state = 2;
+          } else {
+            beamSelector2.position.set(int.point.x, int.point.y, int.point.z);
+            beamSelector2.visible = true;
+            state = 3;
+          }
+          break;
+        }
+      }
+    }
+  }
 
   // Listen for when the system wants to create new scene objects.
   try {
@@ -108,9 +164,10 @@ $( document ).ready(function() {
         if (data.event == "RemoveEntity") {
           //console.log(data);
           removeEntity(data.details.id);
-        }  
-        if (data.event == "observe") {
-          displayNotification(data.details);
+        }
+        if (data.event == "DeliveryScheduled") {
+          $("#popup").show();
+          $("#popup").fadeOut(3000);
         }
       }
     }
@@ -120,7 +177,55 @@ $( document ).ready(function() {
   }
 
   loadScene(sceneFile);
+
+  for (let i = 0; i < 100; i++) {
+    addHuman();
+  }
 });
+
+function schedule() {
+  var errorDiv = document.getElementById("nameError");
+  var searchStrat = document.getElementById("search-strategy").value;
+  //var searchStrat = "beeline";
+  errorDiv.innerHTML = "";
+  var name = $("#name").val();
+  if (name == "") {
+    errorDiv.innerHTML += '<p style="color: red">[!] Error, missing name...</p>'
+  }
+  if (state != 3) {
+    errorDiv.innerHTML += '<p style="color: red">[!] Error, missing pickup and drop off location ...</p>'
+  }
+  if (name != "" && state == 3) {
+    api.sendCommand("CreateEntity", {
+      "type": "package",
+      "name": name + "_package",
+      "mesh": "assets/model/package1.glb",
+      "position": [beamSelector1.position.x*14.2, 254.665, beamSelector1.position.z*14.2],
+      "scale": [0.75, 0.75, 0.75],
+      "direction": [1, 0, 0],
+      "speed": 30.0,
+      "radius": 1.0,
+      "rotation": [0, 0, 0, 0]
+    });
+    api.sendCommand("CreateEntity", {
+      "type": "robot",
+      "name": name,
+      "mesh": "assets/model/robot.glb",
+      "position": [beamSelector2.position.x*14.2, 254.665, beamSelector2.position.z*14.2],
+      "scale": [0.25, 0.25, 0.25],
+      "direction": [1, 0, 0],
+      "speed": 30.0,
+      "radius": 1.0,
+      "rotation": [0, 0, 0, 0]
+    });
+    api.sendCommand("ScheduleTrip", { name: name, start: [beamSelector1.position.x*14.2, beamSelector1.position.z*14.2], end: [beamSelector2.position.x*14.2, 254.665, beamSelector2.position.z*14.2], search: searchStrat });
+    state = 0;
+    beamSelector1.visible = false;
+    beamSelector2.visible = false;
+    document.getElementById("schedule-button").hidden = false;
+    document.getElementById("schedule-input").hidden = true;
+  }
+}
 
 /*// This function is triggered once the web socket is opened.
 socket.onopen = function() {
@@ -218,14 +323,6 @@ function loadScene(file, initialScene = true) {
       socket.send(JSON.stringify({command: "runScript", "script": json}));
     }*/
   });
-}
-var msg = "";
-function displayNotification(data) {
-  notifbar = document.getElementById("notification-bar");
-  // if(msg != data.info) {
-    notifbar.textContent += data.info;
-    // msg = data.info;
-  // }
 }
 
 function displayJSON(data) {
@@ -348,6 +445,7 @@ function loadModels() {
         } );
 
         models.push(object);
+      campus = object;
       scene.add( object );
     },
     // called when loading is in progresses
@@ -359,6 +457,12 @@ function loadModels() {
       console.log( 'An error happened', error);
     }
   );
+}
+
+function stopSimulation()
+{
+  api.sendCommand("stopSimulation",{});
+  api.socket.close();
 }
 
 function toggleRoutes() {
@@ -560,5 +664,27 @@ function onWindowResize() {
   renderer.setSize( container.clientWidth, container.clientHeight );
 }
 
+var humanID = 1;
+function addHuman() {
+  api.sendCommand("CreateEntity", {
+    "type": "human",
+    "name": "Human-" + humanID,
+    "mesh": "assets/model/human.glb",
+    "position": [700, 290, 400],
+    "scale": [0.005, 0.005, 0.005],
+    "rotation": [0, 0, 0, 0],
+    "direction": [1, 0, 0],
+    "speed": 10.0,
+    "radius": 1.0,
+    "start": 2.0,
+    "duration": 2.0,
+    "offset": [0, -0.5, 0]
+  });
+  humanID += 1;
+}
+
 window.changeView = changeView;
 window.toggleRoutes = toggleRoutes;
+window.addHuman = addHuman;
+window.stopSimulation = stopSimulation;
+window.schedule = schedule;

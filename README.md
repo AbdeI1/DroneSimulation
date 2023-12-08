@@ -9,9 +9,3 @@ cargo run 8081 web
 Afterwards you can visit
 
 * [localhost:8081](http://localhost:8081)
-  
-  Visualization of the system.
-
-* [localhost:8081/schedule.html](http://localhost:8081/schedule.html)
-
-  Interact with the system and schedule trips.
