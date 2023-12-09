@@ -1,4 +1,6 @@
-use crate::{math::vector3, transit::{strategy::MovementInfo, simulation_model::SimulationModel}};
+use std::sync::Arc;
+
+use crate::{math::vector3, transit::{strategy::MovementInfo, simulation_model::SimulationModel}, graph::graph::Graph};
 use serde_json::Value;
 use enum_dispatch::enum_dispatch;
 
@@ -13,24 +15,24 @@ use super::{
 };
 
 #[enum_dispatch]
-pub enum Entity<'a> {
-  Drone(Drone<'a>),
-  Helicopter(Helicopter<'a>),
-  Robot(Robot<'a>),
-  Human(Human<'a>),
-  Package(Package<'a>)
+pub enum Entity {
+  Drone(Drone),
+  Helicopter(Helicopter),
+  Robot(Robot),
+  Human(Human),
+  Package(Package)
 }
 
-pub struct EntityStruct<'a> {
+pub struct EntityStruct {
   pub id: i32,
-  pub model: Option<&'a SimulationModel<'a>>,
+  pub model: Option<Arc<Graph>>,
   pub details: Value,
   pub position: Vector3,
   pub direction: Vector3,
   pub speed: f64
 }
 
-impl<'a> EntityStruct<'a> {
+impl EntityStruct {
   pub fn new(id: i32, data: &Value) -> Self {
     EntityStruct { 
       id, 
@@ -59,7 +61,7 @@ impl<'a> EntityStruct<'a> {
 }
 
 #[enum_dispatch(Entity)]
-pub trait EntityTrait<'a> {
+pub trait EntityTrait {
   fn get_id(&self) -> i32;
   fn get_position(&self) -> Vector3 { Vector3::origin() }
   fn get_direction(&self) -> Vector3 { Vector3::origin() }
@@ -87,5 +89,5 @@ pub trait EntityTrait<'a> {
       speed: self.get_speed()
     }
   }
-  fn link_model(&mut self, _model: &'a SimulationModel<'a>) {}
+  fn link_graph(&mut self, _graph: Arc<Graph>) {}
 }

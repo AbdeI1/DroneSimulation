@@ -9,12 +9,12 @@ use super::entities::{
 };
 
 pub trait EntityFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>>;
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity>;
 }
 
 pub struct DroneFactory {}
 impl EntityFactory for DroneFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     match data["type"].as_str().unwrap() {
       "drone" => Some(Entity::Drone(Drone::new(id, data))),
       _ => None
@@ -24,7 +24,7 @@ impl EntityFactory for DroneFactory {
 
 pub struct RobotFactory {}
 impl EntityFactory for RobotFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     match data["type"].as_str().unwrap() {
       "robot" => Some(Entity::Robot(Robot::new(id, data))),
       _ => None
@@ -34,7 +34,7 @@ impl EntityFactory for RobotFactory {
 
 pub struct HumanFactory {}
 impl EntityFactory for HumanFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     match data["type"].as_str().unwrap() {
       "human" => Some(Entity::Human(Human::new(id, data))),
       _ => None
@@ -44,7 +44,7 @@ impl EntityFactory for HumanFactory {
 
 pub struct HelicopterFactory {}
 impl EntityFactory for HelicopterFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     match data["type"].as_str().unwrap() {
       "helicopter" => Some(Entity::Helicopter(Helicopter::new(id, data))),
       _ => None
@@ -54,7 +54,7 @@ impl EntityFactory for HelicopterFactory {
 
 pub struct PackageFactory {}
 impl EntityFactory for PackageFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     match data["type"].as_str().unwrap() {
       "package" => Some(Entity::Package(Package::new(id, data))),
       _ => None
@@ -73,13 +73,13 @@ impl CompositeFactory {
   pub fn add_factory(&mut self, factory: Box<dyn EntityFactory + Send + Sync>) {
     self.factories.push(factory);
   }
-  pub fn create_any_entity<'a>(&mut self, data: &Value) -> Option<Entity<'a>> {
+  pub fn create_any_entity(&mut self, data: &Value) -> Option<Entity> {
     self.id += 1;
     self.create_entity(self.id, data)
   }
 }
 impl EntityFactory for CompositeFactory {
-  fn create_entity<'a>(&self, id: i32, data: &Value) -> Option<Entity<'a>> {
+  fn create_entity(&self, id: i32, data: &Value) -> Option<Entity> {
     for factory in self.factories.iter() {
       if let Some(e) = factory.create_entity(id, data) {
         return Some(e);

@@ -1,8 +1,9 @@
-use std::collections::{HashMap, VecDeque};
+use std::{collections::{HashMap, VecDeque}, rc::Rc, sync::{Arc, RwLock}, ops::DerefMut, cell::Cell};
 
 use crate::{
   transit::entities::entity::{Entity, EntityTrait},
   math::vector3::Vector3, graph::graph::Graph};
+use futures_util::lock::Mutex;
 use serde_json::Value;
 
 use super::factory::{CompositeFactory, DroneFactory, RobotFactory, HumanFactory, HelicopterFactory, PackageFactory};
@@ -17,12 +18,12 @@ pub struct Trip {
   current_destination: Vector3
 }
 
-pub struct SimulationModel<'a> {
-  pub entities: HashMap<i32, Entity<'a>>,
+pub struct SimulationModel {
+  pub entities: HashMap<i32, Arc<RwLock<Entity>>>,
   scheduler: VecDeque<i32>,
   trips: Vec<Trip>,
   factory: CompositeFactory,
-  graph: Graph
+  graph: Arc<Graph>
 }
 
 fn get_nearest_entity(entities: &HashMap<i32, Vector3>, e: Vector3) -> Option<(i32, Vector3)> {
@@ -36,14 +37,14 @@ fn get_nearest_entity(entities: &HashMap<i32, Vector3>, e: Vector3) -> Option<(i
   }
 }
 
-impl<'a> SimulationModel<'a> {
+impl SimulationModel {
   pub fn new() -> Self {
     let mut model = SimulationModel {
       entities: HashMap::new(),
       scheduler: VecDeque::new(),
       trips: vec![],
       factory: CompositeFactory::new(), 
-      graph: Graph::new()
+      graph: Arc::new(Graph::new())
     };
     model.factory.add_factory(Box::new(DroneFactory {}));
     model.factory.add_factory(Box::new(RobotFactory {}));
@@ -53,37 +54,41 @@ impl<'a> SimulationModel<'a> {
     model
   }
   pub fn set_graph(&mut self, graph: Graph) {
-    self.graph = graph;
+    self.graph = Arc::new(graph);
   }
-  pub fn create_entity<'b>(&'a mut self, data: Value) -> Option<&Entity<'b>> where 'a: 'b {
+  pub fn create_entity(&mut self, data: Value) -> Option<Arc<RwLock<Entity>>> {
     let entity_name = data["name"].to_string();
     let p: Vec<f64> = data["position"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
     let entity_pos = Vector3::new(p[0], p[1], p[2]);
     println!("{}: {}", entity_name, entity_pos);
     let ret = self.factory.create_any_entity(&data);
-    if let Some(entity ) = ret {
+    if let Some(mut entity ) = ret {
       let id = entity.get_id();
-      entity.link_model(self);
-      self.entities.insert(id, entity);
-      self.entities.get(&id)
+      entity.link_graph(self.graph.clone());
+      let r = Arc::new(RwLock::new(entity));
+      self.entities.insert(id, r.clone());
+      Some(r)
     } else {
       None
     }
   }
   pub fn schedule_trip(&mut self, data: &Value) -> Option<Value> {
-    // let name = data["name"].to_string();
-    // let start = data["start"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect::<Vec<f64>>();
-    // let end = data["end"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect::<Vec<f64>>();
-    // for (_, entity) in self.entities.iter_mut() {
-    //   if let Entity::Package(package) = entity {
-    //     if package.get_availability() && package.get_details()["name"].to_string() == name {
-    //       // robot.set_destination(Vector3::from_vec(&end));
-    //       // robot.set_strategy(data["search"].as_str().unwrap().to_string());
-    //       // self.scheduler.insert(robot.get_id());
-    //       // println!("{}: {:?} --> {:?}", name, start, end);
-    //     }
-    //   }
-    // }
+    let name = data["name"].to_string();
+    let package_name = name + "_package";
+    let start = data["start"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect::<Vec<f64>>();
+    let end = data["end"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect::<Vec<f64>>();
+    for (_, entity) in self.entities.iter_mut() {
+      entity.write().and_then(|e| {
+        match &mut *e  {
+          Entity::Package(p) => {
+            ()
+          },
+          _ => ()
+        };
+        Ok(())
+      });
+      ()
+    }
     Some(data.clone())
   }
   pub fn stop(&mut self) {
@@ -141,7 +146,7 @@ impl<'a> SimulationModel<'a> {
   // }
   fn update_all_entities(&mut self, dt: f64) {
     for (_, entity) in self.entities.iter_mut() {
-      entity.update(dt);
+      entity.write().and_then(|mut e| Ok(e.update(dt)));
     }
   }
   // fn update_trips(&mut self) {

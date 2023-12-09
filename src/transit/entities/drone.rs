@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use super::entity::{EntityTrait, EntityStruct};
 use crate::graph::graph::Graph;
 use crate::graph::routing::{AStar, DepthFirstSearch, Dijkstras};
@@ -7,17 +9,17 @@ use crate::transit::strategy::{MovementStrategy, PathStrategy, SpinDecorator, Ju
 use serde_json::Value;
 
 
-pub struct Drone<'a> {
-  entity_info: EntityStruct<'a>,
+pub struct Drone {
+  entity_info: EntityStruct,
   availability: bool,
   pub to_robot: Option<Box<dyn MovementStrategy>>,
   pub to_final_destination: Option<Box<dyn MovementStrategy>>,
 }
 
-unsafe impl Send for Drone<'_> {}
-unsafe impl Sync for Drone<'_> {}
+unsafe impl Send for Drone {}
+unsafe impl Sync for Drone {}
 
-impl Drone<'_> {
+impl Drone {
   pub fn new(id: i32, data: &Value) -> Self {
     Drone {
       entity_info: EntityStruct::new(id, data),
@@ -72,7 +74,7 @@ impl Drone<'_> {
   }
 }
 
-impl<'a, 'b> EntityTrait<'b> for Drone<'a> where 'b: 'a {
+impl EntityTrait for Drone {
   fn get_id(&self) -> i32 { self.entity_info.id }
   fn get_position(&self) -> Vector3 { self.entity_info.position }
   fn get_direction(&self) -> Vector3 { self.entity_info.direction }
@@ -94,5 +96,5 @@ impl<'a, 'b> EntityTrait<'b> for Drone<'a> where 'b: 'a {
   }
   fn set_position(&mut self, pos: Vector3) { self.entity_info.position = pos; }
   fn set_direction(&mut self, dir: Vector3) { self.entity_info.direction = dir; }
-  fn link_model(&mut self, model: &'b SimulationModel<'b>) { self.entity_info.model = Some(model); }
+  fn link_graph(&mut self, graph: Arc<Graph>) { self.entity_info.model = Some(graph); }
 }

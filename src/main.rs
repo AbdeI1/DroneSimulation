@@ -97,7 +97,7 @@ async fn serve(websocket: WebSocket) {
       }
     };
     if let Ok(message) = msg.to_str() {
-      // server.recieve_message(message);
+      server.recieve_message(message);
     }
   }
   println!("client disconnected");
