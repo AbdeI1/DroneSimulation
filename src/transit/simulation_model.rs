@@ -61,8 +61,9 @@ impl<'a> SimulationModel<'a> {
     let entity_pos = Vector3::new(p[0], p[1], p[2]);
     println!("{}: {}", entity_name, entity_pos);
     let ret = self.factory.create_any_entity(&data);
-    if let Some(entity) = ret {
+    if let Some(entity ) = ret {
       let id = entity.get_id();
+      entity.link_model(self);
       self.entities.insert(id, entity);
       self.entities.get(&id)
     } else {

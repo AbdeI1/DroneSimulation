@@ -30,8 +30,9 @@ impl<'a, 'b> TransitServer<'a, 'b> where 'a: 'b {
     let data: Value = serde_json::from_str(message).unwrap();
     if let Value::String(cmd) = &data["command"] {
       match cmd.as_str() {
-        "CreateEntity" => if let Some(entity) = self.model.create_entity(data) {
-          self.send_entity("AddEntity", entity);
+        "CreateEntity" => {
+          // self.model.create_entity(data).and_then(|e| Some(self.send_entity("AddEntity", e)));
+          ()
         },
         "ScheduleTrip" => if let Some(data) = self.model.schedule_trip(&data) {
           self.model.update(0.);
